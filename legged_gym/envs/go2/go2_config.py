@@ -3,7 +3,7 @@ from legged_gym.envs.base.legged_robot_config import LeggedRobotCfg, LeggedRobot
 class GO2RoughCfg( LeggedRobotCfg ):
     class env(LeggedRobotCfg.env):
         num_observations = 45
-        num_privileged_obs = 1
+        num_privileged_obs = 49
         num_actions = 12
 
         privileged_future_horizon = 1

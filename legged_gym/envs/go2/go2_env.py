@@ -24,10 +24,10 @@ class Go2Robot(LeggedRobot):
 
         # build privileged obs
         if self.cfg.env.num_privileged_obs is not None:
-            self.privileged_obs_buf = torch.empty(self.num_envs, 0).to(self.device)       # [4096, 0]
-            self.next_privileged_obs_buf = torch.empty(self.num_envs, 0).to(self.device)  # [4096, 0]
-            # self.privileged_obs_buf = torch.empty(self.num_envs, 0)
-            # self.next_privileged_obs_buf = torch.empty(self.num_envs, 0)
+            self.privileged_obs_buf = torch.cat((self.base_lin_vel * self.obs_scales.lin_vel, self.obs_buf),dim=-1)
+            self.next_privileged_obs_buf = torch.cat((self.base_lin_vel * self.obs_scales.lin_vel, self.obs_buf),dim=-1)
+            # self.privileged_obs_buf = torch.empty(self.num_envs, 0).to(self.device)       # [4096, 0]
+            # self.next_privileged_obs_buf = torch.empty(self.num_envs, 0).to(self.device)  # [4096, 0]
 
             if self.cfg.env.priv_observe_friction:
                 self.friction_coeffs = self.friction_coeffs.to(self.device)
