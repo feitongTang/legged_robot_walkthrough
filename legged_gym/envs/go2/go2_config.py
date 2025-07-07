@@ -1,6 +1,37 @@
 from legged_gym.envs.base.legged_robot_config import LeggedRobotCfg, LeggedRobotCfgPPO
 
 class GO2RoughCfg( LeggedRobotCfg ):
+    class env(LeggedRobotCfg.env):
+        num_observations = 45
+        num_privileged_obs = 1
+        num_actions = 12
+
+        privileged_future_horizon = 1
+        priv_observe_friction = True
+        priv_observe_friction_indep = True
+        priv_observe_ground_friction = False
+        priv_observe_ground_friction_per_foot = False
+        priv_observe_restitution = False    # True
+        priv_observe_base_mass = False  # True
+        priv_observe_com_displacement = False   # True
+        priv_observe_motor_strength = False
+        priv_observe_motor_offset = False
+        priv_observe_joint_friction = True
+        priv_observe_Kp_factor = True
+        priv_observe_Kd_factor = True
+        priv_observe_contact_forces = False
+        priv_observe_contact_states = False
+        priv_observe_body_velocity = False
+        priv_observe_foot_height = False
+        priv_observe_body_height = False
+        priv_observe_gravity = False
+        priv_observe_terrain_type = False
+        priv_observe_clock_inputs = False
+        priv_observe_doubletime_clock_inputs = False
+        priv_observe_halftime_clock_inputs = False
+        priv_observe_desired_contact_states = False
+        priv_observe_dummy_variable = False
+
     class init_state( LeggedRobotCfg.init_state ):
         pos = [0.0, 0.0, 0.42] # x,y,z [m]
         default_joint_angles = { # = target angles [rad] when action = 0.0
@@ -19,11 +50,6 @@ class GO2RoughCfg( LeggedRobotCfg ):
             'FR_calf_joint': -1.5,  # [rad]
             'RR_calf_joint': -1.5,    # [rad]
         }
-
-    class env(LeggedRobotCfg.env):
-        num_observations = 45
-        # num_privileged_obs = 45
-        num_actions = 12
 
     class control( LeggedRobotCfg.control ):
         # PD Drive parameters:
@@ -54,7 +80,7 @@ class GO2RoughCfgPPO( LeggedRobotCfgPPO ):
     class algorithm( LeggedRobotCfgPPO.algorithm ):
         entropy_coef = 0.01
     class runner( LeggedRobotCfgPPO.runner ):
-        save_interval = 100
+        save_interval = 50
         max_iterations = 1500
         run_name = ''
         experiment_name = 'go2'
