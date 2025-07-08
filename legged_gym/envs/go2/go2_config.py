@@ -2,30 +2,26 @@ from legged_gym.envs.base.legged_robot_config import LeggedRobotCfg, LeggedRobot
 
 class GO2RoughCfg( LeggedRobotCfg ):
     class env(LeggedRobotCfg.env):
-        num_observations = 46
-        num_privileged_obs = 51
+        num_observations = 45
+        num_privileged_obs = 50
         num_actions = 12
 
-        observe_vel = True
-        observe_yaw = False
-        observe_contact_states = False
-        observe_command = True
-        observe_height_command = False
-        observe_gait_commands = False
+        observe_two_prev_actions = False
         observe_timing_parameter = False
         observe_clock_inputs = False
-        observe_two_prev_actions = False
-        observe_imu = False
+        observe_yaw = False
+        observe_contact_states = False
 
-        privileged_future_horizon = 1
+        observe_gait_commands = False
+
         priv_observe_friction = True
         priv_observe_ground_friction = False
         priv_observe_restitution = True
         priv_observe_com_displacement = False   # True
         priv_observe_motor_strength = False
         priv_observe_motor_offset = False
-        priv_observe_body_velocity = False
         priv_observe_body_height = False
+        priv_observe_body_velocity = False
         priv_observe_gravity = False
         priv_observe_clock_inputs = False
         priv_observe_desired_contact_states = False

@@ -473,6 +473,7 @@ class LeggedRobot(BaseTask):
         self.commands_value = torch.zeros(self.num_envs, self.cfg.commands.num_commands, dtype=torch.float,
                                           device=self.device, requires_grad=False)
         self.commands = torch.zeros(self.num_envs, self.cfg.commands.num_commands, dtype=torch.float, device=self.device, requires_grad=False) # x vel, y vel, yaw vel, heading
+        # TODO
         self.commands_scale = torch.tensor([self.obs_scales.lin_vel, self.obs_scales.lin_vel, self.obs_scales.ang_vel,
                                             self.obs_scales.body_height_cmd, self.obs_scales.gait_freq_cmd,
                                             self.obs_scales.gait_phase_cmd, self.obs_scales.gait_phase_cmd,
@@ -480,7 +481,8 @@ class LeggedRobot(BaseTask):
                                             self.obs_scales.footswing_height_cmd, self.obs_scales.body_pitch_cmd,
                                             self.obs_scales.body_roll_cmd, self.obs_scales.stance_width_cmd,
                                            self.obs_scales.stance_length_cmd, self.obs_scales.aux_reward_cmd],
-                                           device=self.device, requires_grad=False, )[:self.cfg.commands.num_commands]
+                                           device=self.device, requires_grad=False, )[:3]
+                                        #    device=self.device, requires_grad=False, )[:self.cfg.commands.num_commands]
         self.desired_contact_states = torch.zeros(self.num_envs, 4, dtype=torch.float, device=self.device,
                                                   requires_grad=False, )
         self.feet_air_time = torch.zeros(self.num_envs, self.feet_indices.shape[0], dtype=torch.float, device=self.device, requires_grad=False)

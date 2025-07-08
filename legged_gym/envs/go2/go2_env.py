@@ -15,11 +15,34 @@ class Go2Robot(LeggedRobot):
         """
         self.obs_buf = torch.cat((  self.base_ang_vel  * self.obs_scales.ang_vel,
                                     self.projected_gravity,
-                                    self.commands * self.commands_scale,
+                                    self.commands[:, :3] * self.commands_scale,
                                     (self.dof_pos - self.default_dof_pos) * self.obs_scales.dof_pos,
                                     self.dof_vel * self.obs_scales.dof_vel,
                                     self.actions
                                     ),dim=-1)
+        
+        if self.cfg.env.observe_two_prev_actions:
+            self.obs_buf = torch.cat((self.obs_buf,
+                                      self.last_actions), dim=-1)
+            
+        if self.cfg.env.observe_timing_parameter:
+            self.obs_buf = torch.cat((self.obs_buf,
+                                      self.gait_indices.unsqueeze(1)), dim=-1)
+            
+        if self.cfg.env.observe_clock_inputs:
+            self.obs_buf = torch.cat((self.obs_buf,
+                                      self.clock_inputs), dim=-1)
+            
+        if self.cfg.env.observe_yaw:
+            forward = quat_apply(self.base_quat, self.forward_vec)
+            heading = torch.atan2(forward[:, 1], forward[:, 0]).unsqueeze(1)
+            self.obs_buf = torch.cat((self.obs_buf,
+                                      heading), dim=-1)
+        
+        if self.cfg.env.observe_contact_states:
+            self.obs_buf = torch.cat((self.obs_buf, (self.contact_forces[:, self.feet_indices, 2] > 1.).view(
+                self.num_envs,
+                -1) * 1.0), dim=1)
         # add perceptive inputs if not blind
         # add noise if needed
         if self.add_noise:
@@ -126,3 +149,54 @@ class Go2Robot(LeggedRobot):
 
             # assert self.privileged_obs_buf.shape[
             #         1] == self.cfg.env.num_privileged_obs, f"num_privileged_obs ({self.cfg.env.num_privileged_obs}) != the number of privileged observations ({self.privileged_obs_buf.shape[1]}), you will discard data from the student!"
+
+    def _get_noise_scale_vec(self, cfg):
+        """ Sets a vector used to scale the noise added to the observations.
+            [NOTE]: Must be adapted when changing the observations structure
+
+        Args:
+            cfg (Dict): Environment config file
+
+        Returns:
+            [torch.Tensor]: Vector of scales used to multiply a uniform distribution in [-1, 1]
+        """
+
+        noise_vec = torch.zeros(self.num_obs)
+        self.add_noise = self.cfg.noise.add_noise
+        noise_scales = self.cfg.noise.noise_scales
+        noise_level = self.cfg.noise.noise_level
+        noise_vec[:3] = noise_scales.ang_vel * noise_level * self.obs_scales.ang_vel
+        noise_vec[3:6] = noise_scales.gravity * noise_level
+        noise_vec[6:9] = 0. # commands
+        noise_vec[9:9+self.num_actions] = noise_scales.dof_pos * noise_level * self.obs_scales.dof_pos
+        noise_vec[9+self.num_actions:9+2*self.num_actions] = noise_scales.dof_vel * noise_level * self.obs_scales.dof_vel
+        noise_vec[9+2*self.num_actions:9+3*self.num_actions] = 0. # previous actions
+
+        if self.cfg.env.observe_two_prev_actions:
+            noise_vec = torch.cat((noise_vec,
+                                   torch.zeros(self.num_actions)
+                                   ), dim=0)
+        
+        if self.cfg.env.observe_timing_parameter:
+            noise_vec = torch.cat((noise_vec,
+                                   torch.zeros(1)
+                                   ), dim=0)
+            
+        if self.cfg.env.observe_clock_inputs:
+            noise_vec = torch.cat((noise_vec,
+                                   torch.zeros(4)
+                                   ), dim=0)
+            
+        if self.cfg.env.observe_yaw:
+            noise_vec = torch.cat((noise_vec,
+                                   torch.zeros(1),
+                                   ), dim=0)
+            
+        if self.cfg.env.observe_contact_states:
+            noise_vec = torch.cat((noise_vec,
+                                   torch.ones(4) * noise_scales.contact_states * noise_level,
+                                   ), dim=0)
+            
+        noise_vec = noise_vec.to(self.device)
+
+        return noise_vec
