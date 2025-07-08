@@ -5,6 +5,9 @@ from isaacgym.torch_utils import *
 from isaacgym import gymtorch, gymapi, gymutil
 from legged_gym.utils.math import get_scale_shift
 import torch
+import numpy as np
+
+from legged_gym.envs.base.legged_robot_config import LeggedRobotCfg
 
 class Go2Robot(LeggedRobot):
     def compute_observations(self):

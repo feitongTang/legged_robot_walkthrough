@@ -31,6 +31,60 @@ class GO2RoughCfg( LeggedRobotCfg ):
         priv_observe_desired_contact_states = False
         priv_observe_dummy_variable = False
 
+    class commands( LeggedRobotCfg.commands ):
+        gaitwise_curricula = True   # 启用步态相关的课程学习
+        curriculum_type = "RewardThresholdCurriculum"
+        curriculum_seed = 207
+        class ranges( LeggedRobotCfg.commands.ranges ):
+            limit_vel_x = [-10.0, 10.0]
+            limit_vel_y = [-0.6, 0.6]
+            limit_vel_yaw = [-10.0, 10.0]
+            limit_body_height = [-0.05, 0.05]
+            limit_gait_frequency = [2.0, 2.01]
+            limit_gait_phase = [0, 0.01]
+            limit_gait_offset = [0, 0.01]
+            limit_gait_bound = [0, 0.01]
+            limit_gait_duration = [0.49, 0.5]
+            limit_footswing_height = [0.06, 0.061]
+            limit_body_pitch = [0.0, 0.01]
+            limit_body_roll = [0.0, 0.01]
+            limit_stance_width = [0.0, 0.01]
+            limit_stance_length = [0.0, 0.01]
+            limit_aux_reward_coef = [0.0, 0.01]
+
+            lin_vel_x = [-1.0, 1.0]  # min max [m/s]
+            lin_vel_y = [-1.0, 1.0]  # min max [m/s]
+            ang_vel_yaw = [-1, 1]  # min max [rad/s]
+            body_height_cmd = [-0.05, 0.05]
+            gait_frequency_cmd_range = [2.0, 2.01]
+            gait_phase_cmd_range = [0.0, 0.01]
+            gait_offset_cmd_range = [0.0, 0.01]
+            gait_bound_cmd_range = [0.0, 0.01]
+            gait_duration_cmd_range = [0.49, 0.5]
+            footswing_height_range = [0.06, 0.061]
+            body_pitch_range = [0.0, 0.01]
+            body_roll_range = [0.0, 0.01]
+            stance_width_range = [0.0, 0.01]
+            stance_length_range = [0.0, 0.01]
+            aux_reward_coef_range = [0.0, 0.01]   
+
+        class num_bins:
+            num_bins_vel_x = 25
+            num_bins_vel_y = 3
+            num_bins_vel_yaw = 25
+            num_bins_body_height = 1
+            num_bins_gait_frequency = 11
+            num_bins_gait_phase = 11
+            num_bins_gait_offset = 2
+            num_bins_gait_bound = 2
+            num_bins_gait_duration = 3
+            num_bins_footswing_height = 1
+            num_bins_body_pitch = 1
+            num_bins_body_roll = 1
+            num_bins_stance_width = 1
+            num_bins_stance_length = 1
+            num_bins_aux_reward_coef = 1
+
     class init_state( LeggedRobotCfg.init_state ):
         pos = [0.0, 0.0, 0.42] # x,y,z [m]
         default_joint_angles = { # = target angles [rad] when action = 0.0
@@ -72,8 +126,19 @@ class GO2RoughCfg( LeggedRobotCfg ):
         soft_dof_pos_limit = 0.9
         base_height_target = 0.25
         class scales( LeggedRobotCfg.rewards.scales ):
-            torques = -0.0002
-            dof_pos_limits = -10.0
+            dof_pos_limits = 0.0
+            dof_vel_limits = 0.0
+            torque_limits = 0.0
+            feet_contact_forces = 0.
+            jump = 0.0
+            tracking_contacts_shaped_force = 0.
+            tracking_contacts_shaped_vel = 0.
+            feet_slip = 0.
+            feet_contact_vel = 0.0
+            feet_clearance_cmd_linear = 0.
+            feet_impact_vel = 0.0
+            orientation_control = 0.0
+            raibert_heuristic = 0.0
 
 class GO2RoughCfgPPO( LeggedRobotCfgPPO ):
     class algorithm( LeggedRobotCfgPPO.algorithm ):
