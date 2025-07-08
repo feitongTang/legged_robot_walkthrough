@@ -3,7 +3,7 @@ from legged_gym.envs.base.legged_robot_config import LeggedRobotCfg, LeggedRobot
 class GO2RoughCfg( LeggedRobotCfg ):
     class env(LeggedRobotCfg.env):
         num_observations = 45
-        num_privileged_obs = 49
+        num_privileged_obs = 50
         num_actions = 12
 
         privileged_future_horizon = 1
@@ -11,8 +11,7 @@ class GO2RoughCfg( LeggedRobotCfg ):
         priv_observe_friction_indep = True
         priv_observe_ground_friction = False
         priv_observe_ground_friction_per_foot = False
-        priv_observe_restitution = False    # True
-        priv_observe_base_mass = False  # True
+        priv_observe_restitution = True
         priv_observe_com_displacement = False   # True
         priv_observe_motor_strength = False
         priv_observe_motor_offset = False

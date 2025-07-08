@@ -51,18 +51,10 @@ class Go2Robot(LeggedRobot):
             if self.cfg.env.priv_observe_restitution:
                 restitutions_scale, restitutions_shift = get_scale_shift(self.cfg.normalization.restitution_range)
                 self.privileged_obs_buf = torch.cat((self.privileged_obs_buf,
-                                                    (self.restitutions[:, 0] - restitutions_shift) * restitutions_scale),
+                                                    (self.restitutions[:, 0].unsqueeze(1) - restitutions_shift) * restitutions_scale),
                                                     dim=1)
                 self.next_privileged_obs_buf = torch.cat((self.next_privileged_obs_buf,
-                                                        (self.restitutions[:, 0] - restitutions_shift) * restitutions_scale),
-                                                        dim=1)
-            if self.cfg.env.priv_observe_base_mass:
-                payloads_scale, payloads_shift = get_scale_shift(self.cfg.normalization.added_mass_range)
-                self.privileged_obs_buf = torch.cat((self.privileged_obs_buf,
-                                                    (self.payloads - payloads_shift) * payloads_scale),
-                                                    dim=1)
-                self.next_privileged_obs_buf = torch.cat((self.next_privileged_obs_buf,
-                                                        (self.payloads - payloads_shift) * payloads_scale),
+                                                        (self.restitutions[:, 0].unsqueeze(1) - restitutions_shift) * restitutions_scale),
                                                         dim=1)
             if self.cfg.env.priv_observe_com_displacement:
                 com_displacements_scale, com_displacements_shift = get_scale_shift(
