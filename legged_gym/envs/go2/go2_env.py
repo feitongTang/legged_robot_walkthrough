@@ -15,7 +15,7 @@ class Go2Robot(LeggedRobot):
         """
         self.obs_buf = torch.cat((  self.base_ang_vel  * self.obs_scales.ang_vel,
                                     self.projected_gravity,
-                                    self.commands[:, :3] * self.commands_scale,
+                                    self.commands * self.commands_scale,
                                     (self.dof_pos - self.default_dof_pos) * self.obs_scales.dof_pos,
                                     self.dof_vel * self.obs_scales.dof_vel,
                                     self.actions
@@ -29,8 +29,6 @@ class Go2Robot(LeggedRobot):
         if self.cfg.env.num_privileged_obs is not None:
             self.privileged_obs_buf = torch.cat((self.base_lin_vel * self.obs_scales.lin_vel, self.obs_buf),dim=-1)
             self.next_privileged_obs_buf = torch.cat((self.base_lin_vel * self.obs_scales.lin_vel, self.obs_buf),dim=-1)
-            # self.privileged_obs_buf = torch.empty(self.num_envs, 0).to(self.device)       # [4096, 0]
-            # self.next_privileged_obs_buf = torch.empty(self.num_envs, 0).to(self.device)  # [4096, 0]
 
             if self.cfg.env.priv_observe_friction:
                 self.friction_coeffs = self.friction_coeffs.to(self.device)

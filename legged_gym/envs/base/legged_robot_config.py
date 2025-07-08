@@ -90,13 +90,31 @@ class LeggedRobotCfg(BaseConfig):
         thickness = 0.01
 
     class domain_rand:
+        rand_interval_s = 10
+        randomize_rigids_after_start = True
         randomize_friction = True
         friction_range = [0.5, 1.25]
+        randomize_restitution = False
+        restitution_range = [0, 1.0]
         randomize_base_mass = True  # False
         added_mass_range = [-1., 1.]
+        randomize_com_displacement = False
+        com_displacement_range = [-0.15, 0.15]
+        randomize_motor_strength = False
+        motor_strength_range = [0.9, 1.1]
+        randomize_Kp_factor = False
+        Kp_factor_range = [0.8, 1.3]
+        randomize_Kd_factor = False
+        Kd_factor_range = [0.5, 1.5]
+        gravity_rand_interval_s = 7
+        gravity_impulse_duration = 1.0
+        randomize_gravity = False
+        gravity_range = [-1.0, 1.0]
         push_robots = True
         push_interval_s = 15
         max_push_vel_xy = 1.
+        randomize_lag_timesteps = True
+        lag_timesteps = 6
 
     class rewards:
         class scales:
