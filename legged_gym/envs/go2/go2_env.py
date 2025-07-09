@@ -10,6 +10,37 @@ import numpy as np
 from legged_gym.envs.base.legged_robot_config import LeggedRobotCfg
 
 class Go2Robot(LeggedRobot):
+    def _post_physics_step_callback(self):
+        """ Callback called before computing terminations, rewards, and observations
+            Default behaviour: Compute ang vel command based on target and heading, compute measured terrain heights and randomly push robots
+        """
+
+        # resample commands
+        sample_interval = int(self.cfg.commands.resampling_time / self.dt)
+        env_ids = (self.episode_length_buf % sample_interval == 0).nonzero(as_tuple=False).flatten()
+        self._resample_commands(env_ids)
+        self._step_contact_targets()
+
+        # measure terrain heights
+        if self.cfg.terrain.measure_heights:
+            self.measured_heights = self._get_heights(torch.arange(self.num_envs, device=self.device), self.cfg)
+
+        # push robots
+        self._push_robots()
+
+        # randomize dof properties
+        env_ids = (self.episode_length_buf % int(self.cfg.domain_rand.rand_interval) == 0).nonzero(
+            as_tuple=False).flatten()
+        self._randomize_dof_props(env_ids, self.cfg)
+
+        if self.common_step_counter % int(self.cfg.domain_rand.gravity_rand_interval) == 0:
+            self._randomize_gravity()
+        if int(self.common_step_counter - self.cfg.domain_rand.gravity_rand_duration) % int(
+                self.cfg.domain_rand.gravity_rand_interval) == 0:
+            self._randomize_gravity(torch.tensor([0, 0, 0]))
+        if self.cfg.domain_rand.randomize_rigids_after_start:
+            self._randomize_rigid_body_props(env_ids, self.cfg)
+            self.refresh_actor_rigid_shape_props(env_ids, self.cfg)
     def _resample_commands(self, env_ids):
 
         if len(env_ids) == 0: return
@@ -172,10 +203,10 @@ class Go2Robot(LeggedRobot):
                 self.friction_coeffs = self.friction_coeffs.to(self.device)
                 friction_coeffs_scale, friction_coeffs_shift = get_scale_shift(self.cfg.normalization.friction_range)
                 self.privileged_obs_buf = torch.cat((self.privileged_obs_buf,
-                                                    (self.friction_coeffs[:, 0] - friction_coeffs_shift) * friction_coeffs_scale),
+                                                    (self.friction_coeffs[:, 0].unsqueeze(1) - friction_coeffs_shift) * friction_coeffs_scale),
                                                     dim=1)
                 self.next_privileged_obs_buf = torch.cat((self.next_privileged_obs_buf,
-                                                        (self.friction_coeffs[:, 0] - friction_coeffs_shift) * friction_coeffs_scale),
+                                                        (self.friction_coeffs[:, 0].unsqueeze(1) - friction_coeffs_shift) * friction_coeffs_scale),
                                                         dim=1)
             if self.cfg.env.priv_observe_ground_friction:
                 self.ground_friction_coeffs = self._get_ground_frictions(range(self.num_envs))
@@ -315,3 +346,120 @@ class Go2Robot(LeggedRobot):
         noise_vec = noise_vec.to(self.device)
 
         return noise_vec
+    
+    def _step_contact_targets(self):
+        if self.cfg.env.observe_gait_commands:
+            frequencies = self.commands[:, 4]
+            phases = self.commands[:, 5]
+            offsets = self.commands[:, 6]
+            bounds = self.commands[:, 7]
+            durations = self.commands[:, 8]
+            self.gait_indices = torch.remainder(self.gait_indices + self.dt * frequencies, 1.0)
+
+            if self.cfg.commands.pacing_offset:
+                foot_indices = [self.gait_indices + phases + offsets + bounds,
+                                self.gait_indices + bounds,
+                                self.gait_indices + offsets,
+                                self.gait_indices + phases]
+            else:
+                foot_indices = [self.gait_indices + phases + offsets + bounds,
+                                self.gait_indices + offsets,
+                                self.gait_indices + bounds,
+                                self.gait_indices + phases]
+
+            self.foot_indices = torch.remainder(torch.cat([foot_indices[i].unsqueeze(1) for i in range(4)], dim=1), 1.0)
+
+            for idxs in foot_indices:
+                stance_idxs = torch.remainder(idxs, 1) < durations
+                swing_idxs = torch.remainder(idxs, 1) > durations
+
+                idxs[stance_idxs] = torch.remainder(idxs[stance_idxs], 1) * (0.5 / durations[stance_idxs])
+                idxs[swing_idxs] = 0.5 + (torch.remainder(idxs[swing_idxs], 1) - durations[swing_idxs]) * (
+                            0.5 / (1 - durations[swing_idxs]))
+
+            # if self.cfg.commands.durations_warp_clock_inputs:
+
+            self.clock_inputs[:, 0] = torch.sin(2 * np.pi * foot_indices[0])
+            self.clock_inputs[:, 1] = torch.sin(2 * np.pi * foot_indices[1])
+            self.clock_inputs[:, 2] = torch.sin(2 * np.pi * foot_indices[2])
+            self.clock_inputs[:, 3] = torch.sin(2 * np.pi * foot_indices[3])
+
+            self.doubletime_clock_inputs[:, 0] = torch.sin(4 * np.pi * foot_indices[0])
+            self.doubletime_clock_inputs[:, 1] = torch.sin(4 * np.pi * foot_indices[1])
+            self.doubletime_clock_inputs[:, 2] = torch.sin(4 * np.pi * foot_indices[2])
+            self.doubletime_clock_inputs[:, 3] = torch.sin(4 * np.pi * foot_indices[3])
+
+            self.halftime_clock_inputs[:, 0] = torch.sin(np.pi * foot_indices[0])
+            self.halftime_clock_inputs[:, 1] = torch.sin(np.pi * foot_indices[1])
+            self.halftime_clock_inputs[:, 2] = torch.sin(np.pi * foot_indices[2])
+            self.halftime_clock_inputs[:, 3] = torch.sin(np.pi * foot_indices[3])
+
+            # von mises distribution
+            kappa = self.cfg.rewards.kappa_gait_probs
+            smoothing_cdf_start = torch.distributions.normal.Normal(0,
+                                                                    kappa).cdf  # (x) + torch.distributions.normal.Normal(1, kappa).cdf(x)) / 2
+
+            smoothing_multiplier_FL = (smoothing_cdf_start(torch.remainder(foot_indices[0], 1.0)) * (
+                    1 - smoothing_cdf_start(torch.remainder(foot_indices[0], 1.0) - 0.5)) +
+                                       smoothing_cdf_start(torch.remainder(foot_indices[0], 1.0) - 1) * (
+                                               1 - smoothing_cdf_start(
+                                           torch.remainder(foot_indices[0], 1.0) - 0.5 - 1)))
+            smoothing_multiplier_FR = (smoothing_cdf_start(torch.remainder(foot_indices[1], 1.0)) * (
+                    1 - smoothing_cdf_start(torch.remainder(foot_indices[1], 1.0) - 0.5)) +
+                                       smoothing_cdf_start(torch.remainder(foot_indices[1], 1.0) - 1) * (
+                                               1 - smoothing_cdf_start(
+                                           torch.remainder(foot_indices[1], 1.0) - 0.5 - 1)))
+            smoothing_multiplier_RL = (smoothing_cdf_start(torch.remainder(foot_indices[2], 1.0)) * (
+                    1 - smoothing_cdf_start(torch.remainder(foot_indices[2], 1.0) - 0.5)) +
+                                       smoothing_cdf_start(torch.remainder(foot_indices[2], 1.0) - 1) * (
+                                               1 - smoothing_cdf_start(
+                                           torch.remainder(foot_indices[2], 1.0) - 0.5 - 1)))
+            smoothing_multiplier_RR = (smoothing_cdf_start(torch.remainder(foot_indices[3], 1.0)) * (
+                    1 - smoothing_cdf_start(torch.remainder(foot_indices[3], 1.0) - 0.5)) +
+                                       smoothing_cdf_start(torch.remainder(foot_indices[3], 1.0) - 1) * (
+                                               1 - smoothing_cdf_start(
+                                           torch.remainder(foot_indices[3], 1.0) - 0.5 - 1)))
+
+            self.desired_contact_states[:, 0] = smoothing_multiplier_FL
+            self.desired_contact_states[:, 1] = smoothing_multiplier_FR
+            self.desired_contact_states[:, 2] = smoothing_multiplier_RL
+            self.desired_contact_states[:, 3] = smoothing_multiplier_RR
+
+        if self.cfg.commands.num_commands > 9:
+            self.desired_footswing_height = self.commands[:, 9]
+
+    def _get_heights(self, env_ids, cfg):
+        """ Samples heights of the terrain at required points around each robot.
+            The points are offset by the base's position and rotated by the base's yaw
+
+        Args:
+            env_ids (List[int], optional): Subset of environments for which to return the heights. Defaults to None.
+
+        Raises:
+            NameError: [description]
+
+        Returns:
+            [type]: [description]
+        """
+        if cfg.terrain.mesh_type == 'plane':
+            return torch.zeros(len(env_ids), cfg.env.num_height_points, device=self.device, requires_grad=False)
+        elif cfg.terrain.mesh_type == 'none':
+            raise NameError("Can't measure height with terrain mesh type 'none'")
+
+        points = quat_apply_yaw(self.base_quat[env_ids].repeat(1, cfg.env.num_height_points),
+                                self.height_points[env_ids]) + (self.root_states[env_ids, :3]).unsqueeze(1)
+
+        points += self.terrain.cfg.border_size
+        points = (points / self.terrain.cfg.horizontal_scale).long()
+        px = points[:, :, 0].view(-1)
+        py = points[:, :, 1].view(-1)
+        px = torch.clip(px, 0, self.height_samples.shape[0] - 2)
+        py = torch.clip(py, 0, self.height_samples.shape[1] - 2)
+
+        heights1 = self.height_samples[px, py]
+        heights2 = self.height_samples[px + 1, py]
+        heights3 = self.height_samples[px, py + 1]
+        heights = torch.min(heights1, heights2)
+        heights = torch.min(heights, heights3)
+
+        return heights.view(len(env_ids), -1) * self.terrain.cfg.vertical_scale

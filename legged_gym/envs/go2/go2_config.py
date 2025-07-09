@@ -12,7 +12,7 @@ class GO2RoughCfg( LeggedRobotCfg ):
         observe_yaw = False
         observe_contact_states = False
 
-        observe_gait_commands = False
+        observe_gait_commands = True
 
         priv_observe_friction = True
         priv_observe_ground_friction = False
@@ -27,7 +27,12 @@ class GO2RoughCfg( LeggedRobotCfg ):
         priv_observe_desired_contact_states = False
 
     class commands( LeggedRobotCfg.commands ):
-        gaitwise_curricula = True   # 启用步态相关的课程学习
+        num_commands = 9
+        exclusive_phase_offset = True
+        binary_phases = False
+        pacing_offset = False
+        balance_gait_distribution = True
+        gaitwise_curricula = True
         curriculum_type = "RewardThresholdCurriculum"
         curriculum_seed = 207
         global_reference = False
@@ -121,6 +126,7 @@ class GO2RoughCfg( LeggedRobotCfg ):
     class rewards( LeggedRobotCfg.rewards ):
         soft_dof_pos_limit = 0.9
         base_height_target = 0.25
+        kappa_gait_probs = 0.07
         class scales( LeggedRobotCfg.rewards.scales ):
             dof_pos_limits = 0.0
             dof_vel_limits = 0.0

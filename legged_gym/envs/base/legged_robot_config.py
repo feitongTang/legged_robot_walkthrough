@@ -121,6 +121,7 @@ class LeggedRobotCfg(BaseConfig):
         max_push_vel_xy = 1.
         randomize_lag_timesteps = True
         lag_timesteps = 6
+        randomize_motor_offset = False
 
     class rewards:
         class scales:
