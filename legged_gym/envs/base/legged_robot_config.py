@@ -48,6 +48,12 @@ class LeggedRobotCfg(BaseConfig):
             ang_vel_yaw = [-1, 1]    # min max [rad/s]
             heading = [-3.14, 3.14]
 
+    class curriculum_thresholds:
+        tracking_lin_vel = 0.8  # closer to 1 is tighter
+        tracking_ang_vel = 0.5
+        tracking_contacts_shaped_force = 0.8  # closer to 1 is tighter
+        tracking_contacts_shaped_vel = 0.8
+
     class init_state:
         pos = [0.0, 0.0, 1.] # x,y,z [m]
         rot = [0.0, 0.0, 0.0, 1.0] # x,y,z,w [quat]
