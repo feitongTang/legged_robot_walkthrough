@@ -205,7 +205,8 @@ class Go2Robot(LeggedRobot):
             self.measured_heights = self._get_heights(torch.arange(self.num_envs, device=self.device), self.cfg)
 
         # push robots
-        self._push_robots()
+        if self.cfg.domain_rand.push_robots:
+            self._push_robots()
 
         # randomize dof properties
         env_ids = (self.episode_length_buf % int(self.cfg.domain_rand.rand_interval) == 0).nonzero(
