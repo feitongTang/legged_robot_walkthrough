@@ -8,10 +8,6 @@
 
 ---
 
-## 安装配置
-
-安装和配置步骤请参考 [setup.md](/doc/setup_zh.md)
-
 ## 流程说明
 
 强化学习实现运动控制的基本流程为：
@@ -94,7 +90,7 @@ python deploy/deploy_mujoco/deploy_mujoco.py go2.yaml
 - [legged\_gym](https://github.com/leggedrobotics/legged_gym): 构建训练与运行代码的基础。
 - [rsl\_rl](https://github.com/leggedrobotics/rsl_rl.git): 强化学习算法实现。
 - [mujoco](https://github.com/google-deepmind/mujoco.git): 提供强大仿真功能。
-- [unitree\_rl\_gym](https://github.com/unitreerobotics/unitree_rl_gym)]: 提供代码基础及机器人模型。
+- [unitree\_rl\_gym](https://github.com/unitreerobotics/unitree_rl_gym): 提供代码基础及机器人模型。
 - [walk\_these\_ways](https://github.com/Improbable-AI/walk-these-ways): 提供代码基础及算法实现。
 
 ---
