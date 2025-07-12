@@ -472,16 +472,44 @@ class LeggedRobot(BaseTask):
         Returns:
             [torch.Tensor]: Vector of scales used to multiply a uniform distribution in [-1, 1]
         """
-        noise_vec = torch.zeros_like(self.obs_buf[0])
+
+        noise_vec = torch.zeros(self.num_obs)
         self.add_noise = self.cfg.noise.add_noise
         noise_scales = self.cfg.noise.noise_scales
         noise_level = self.cfg.noise.noise_level
-        noise_vec[:3] = noise_scales.ang_vel * noise_level * self.obs_scales.ang_vel
-        noise_vec[3:6] = noise_scales.gravity * noise_level
-        noise_vec[6:9] = 0. # commands
-        noise_vec[9:9+self.num_actions] = noise_scales.dof_pos * noise_level * self.obs_scales.dof_pos
-        noise_vec[9+self.num_actions:9+2*self.num_actions] = noise_scales.dof_vel * noise_level * self.obs_scales.dof_vel
-        noise_vec[9+2*self.num_actions:9+3*self.num_actions] = 0. # previous actions
+        noise_vec[: 3] = noise_scales.ang_vel * noise_level * self.obs_scales.ang_vel
+        noise_vec[3: 6] = noise_scales.gravity * noise_level
+        noise_vec[6: 6 + cfg.commands.num_commands] = 0. # commands
+        noise_vec[6 + cfg.commands.num_commands: 6 + cfg.commands.num_commands + self.num_actions] = noise_scales.dof_pos * noise_level * self.obs_scales.dof_pos
+        noise_vec[6 + cfg.commands.num_commands + self.num_actions:  6 + cfg.commands.num_commands + 2 * self.num_actions] = noise_scales.dof_vel * noise_level * self.obs_scales.dof_vel
+        noise_vec[6 + cfg.commands.num_commands + 2 * self.num_actions:  6 + cfg.commands.num_commands + 3 * self.num_actions] = 0. # previous actions
+
+        if self.cfg.env.observe_two_prev_actions:
+            noise_vec = torch.cat((noise_vec,
+                                   torch.zeros(self.num_actions)
+                                   ), dim=0)
+        
+        if self.cfg.env.observe_timing_parameter:
+            noise_vec = torch.cat((noise_vec,
+                                   torch.zeros(1)
+                                   ), dim=0)
+            
+        if self.cfg.env.observe_clock_inputs:
+            noise_vec = torch.cat((noise_vec,
+                                   torch.zeros(4)
+                                   ), dim=0)
+            
+        if self.cfg.env.observe_yaw:
+            noise_vec = torch.cat((noise_vec,
+                                   torch.zeros(1),
+                                   ), dim=0)
+            
+        if self.cfg.env.observe_contact_states:
+            noise_vec = torch.cat((noise_vec,
+                                   torch.ones(4) * noise_scales.contact_states * noise_level,
+                                   ), dim=0)
+            
+        noise_vec = noise_vec.to(self.device)
 
         return noise_vec
 
@@ -644,8 +672,8 @@ class LeggedRobot(BaseTask):
                                             self.obs_scales.footswing_height_cmd, self.obs_scales.body_pitch_cmd,
                                             self.obs_scales.body_roll_cmd, self.obs_scales.stance_width_cmd,
                                            self.obs_scales.stance_length_cmd, self.obs_scales.aux_reward_cmd],
-                                           device=self.device, requires_grad=False, )[:3]
-                                        #    device=self.device, requires_grad=False, )[:self.cfg.commands.num_commands]
+                                        #    device=self.device, requires_grad=False, )[:3]
+                                           device=self.device, requires_grad=False, )[:self.cfg.commands.num_commands]
         self.desired_contact_states = torch.zeros(self.num_envs, 4, dtype=torch.float, device=self.device,
                                                   requires_grad=False, )
         self.feet_air_time = torch.zeros(self.num_envs, self.feet_indices.shape[0], dtype=torch.float, device=self.device, requires_grad=False)

@@ -50,10 +50,10 @@ class Go2Robot(LeggedRobot):
     def compute_observations(self):
         """ Computes observations
         """
-        # TODO 这里的command是否需要切片
         self.obs_buf = torch.cat((  self.base_ang_vel  * self.obs_scales.ang_vel,
                                     self.projected_gravity,
-                                    self.commands[:, :3] * self.commands_scale,
+                                    # self.commands[:, :3] * self.commands_scale,
+                                    self.commands * self.commands_scale,
                                     (self.dof_pos - self.default_dof_pos) * self.obs_scales.dof_pos,
                                     self.dof_vel * self.obs_scales.dof_vel,
                                     self.actions
@@ -339,53 +339,64 @@ class Go2Robot(LeggedRobot):
             self.command_sums[key][env_ids] = 0.
 
     def _step_contact_targets(self):
-        # TODO: understand the code
+        """步态控制的核心函数"""
         if self.cfg.env.observe_gait_commands:
+            # 在init_buffer中初始化了commands
             frequencies = self.commands[:, 4]
-            phases = self.commands[:, 5]
-            offsets = self.commands[:, 6]
-            bounds = self.commands[:, 7]
+            phases = self.commands[:, 5]        # 基础相位偏移，通过设置不同足端的基础相位差，实现步态交替
+            offsets = self.commands[:, 6]       # 足端时序便宜，微调各足端的相对时序，实现步态变体
+            bounds = self.commands[:, 7]        # 步态边界，控制步态边界行为，影响步态形态
             durations = self.commands[:, 8]
-            self.gait_indices = torch.remainder(self.gait_indices + self.dt * frequencies, 1.0)
 
-            if self.cfg.commands.pacing_offset:
+            # 基于步态频率和时间步长更新步态周期索引
+            self.gait_indices = torch.remainder(self.gait_indices + self.dt * frequencies, 1.0)     # torch.remainder()函数返回的是余数
+
+            if self.cfg.commands.pacing_offset:     # 适用于pacing gait，特点是同侧足同步运动
                 foot_indices = [self.gait_indices + phases + offsets + bounds,
                                 self.gait_indices + bounds,
                                 self.gait_indices + offsets,
                                 self.gait_indices + phases]
-            else:
+            else:                                   # 标准模式，用于小跑、跳跃等标准步态
                 foot_indices = [self.gait_indices + phases + offsets + bounds,
                                 self.gait_indices + offsets,
                                 self.gait_indices + bounds,
                                 self.gait_indices + phases]
 
+            # 最后输出的是四个足端(FL, FR, RL, RR)的相位索引
             self.foot_indices = torch.remainder(torch.cat([foot_indices[i].unsqueeze(1) for i in range(4)], dim=1), 1.0)
 
+            # 支撑相/摆动相判定
             for idxs in foot_indices:
+                # 根据duration(支撑相占比)划分支撑相和摆动相
                 stance_idxs = torch.remainder(idxs, 1) < durations
                 swing_idxs = torch.remainder(idxs, 1) > durations
 
+                # 标准化步态周期
                 idxs[stance_idxs] = torch.remainder(idxs[stance_idxs], 1) * (0.5 / durations[stance_idxs])
                 idxs[swing_idxs] = 0.5 + (torch.remainder(idxs[swing_idxs], 1) - durations[swing_idxs]) * (
                             0.5 / (1 - durations[swing_idxs]))
 
-            # if self.cfg.commands.durations_warp_clock_inputs:
-
+            # 时钟信号生成
+            # TODO: 这些信号是如何被使用的？
+            # 基础频率信号
             self.clock_inputs[:, 0] = torch.sin(2 * np.pi * foot_indices[0])
             self.clock_inputs[:, 1] = torch.sin(2 * np.pi * foot_indices[1])
             self.clock_inputs[:, 2] = torch.sin(2 * np.pi * foot_indices[2])
             self.clock_inputs[:, 3] = torch.sin(2 * np.pi * foot_indices[3])
 
+            # 倍频信号：用于快速步态
             self.doubletime_clock_inputs[:, 0] = torch.sin(4 * np.pi * foot_indices[0])
             self.doubletime_clock_inputs[:, 1] = torch.sin(4 * np.pi * foot_indices[1])
             self.doubletime_clock_inputs[:, 2] = torch.sin(4 * np.pi * foot_indices[2])
             self.doubletime_clock_inputs[:, 3] = torch.sin(4 * np.pi * foot_indices[3])
 
+            # 半频信号：用于慢速步态
             self.halftime_clock_inputs[:, 0] = torch.sin(np.pi * foot_indices[0])
             self.halftime_clock_inputs[:, 1] = torch.sin(np.pi * foot_indices[1])
             self.halftime_clock_inputs[:, 2] = torch.sin(np.pi * foot_indices[2])
             self.halftime_clock_inputs[:, 3] = torch.sin(np.pi * foot_indices[3])
 
+            # 期望接触状态计算：使用正态分布CDF平滑步态过渡
             # von mises distribution
             kappa = self.cfg.rewards.kappa_gait_probs
             smoothing_cdf_start = torch.distributions.normal.Normal(0,
@@ -412,6 +423,7 @@ class Go2Robot(LeggedRobot):
                                                1 - smoothing_cdf_start(
                                            torch.remainder(foot_indices[3], 1.0) - 0.5 - 1)))
 
+            # 输出表示足端接触概率
             self.desired_contact_states[:, 0] = smoothing_multiplier_FL
             self.desired_contact_states[:, 1] = smoothing_multiplier_FR
             self.desired_contact_states[:, 2] = smoothing_multiplier_RL
@@ -419,57 +431,6 @@ class Go2Robot(LeggedRobot):
 
         if self.cfg.commands.num_commands > 9:
             self.desired_footswing_height = self.commands[:, 9]
-
-    def _get_noise_scale_vec(self, cfg):
-        """ Sets a vector used to scale the noise added to the observations.
-            [NOTE]: Must be adapted when changing the observations structure
-
-        Args:
-            cfg (Dict): Environment config file
-
-        Returns:
-            [torch.Tensor]: Vector of scales used to multiply a uniform distribution in [-1, 1]
-        """
-
-        noise_vec = torch.zeros(self.num_obs)
-        self.add_noise = self.cfg.noise.add_noise
-        noise_scales = self.cfg.noise.noise_scales
-        noise_level = self.cfg.noise.noise_level
-        noise_vec[: 3] = noise_scales.ang_vel * noise_level * self.obs_scales.ang_vel
-        noise_vec[3: 6] = noise_scales.gravity * noise_level
-        noise_vec[6: 9] = 0. # commands
-        noise_vec[9: 9 + self.num_actions] = noise_scales.dof_pos * noise_level * self.obs_scales.dof_pos
-        noise_vec[9 + self.num_actions: 9 + 2 * self.num_actions] = noise_scales.dof_vel * noise_level * self.obs_scales.dof_vel
-        noise_vec[9 + 2 * self.num_actions:9 + 3 * self.num_actions] = 0. # previous actions
-
-        if self.cfg.env.observe_two_prev_actions:
-            noise_vec = torch.cat((noise_vec,
-                                   torch.zeros(self.num_actions)
-                                   ), dim=0)
-        
-        if self.cfg.env.observe_timing_parameter:
-            noise_vec = torch.cat((noise_vec,
-                                   torch.zeros(1)
-                                   ), dim=0)
-            
-        if self.cfg.env.observe_clock_inputs:
-            noise_vec = torch.cat((noise_vec,
-                                   torch.zeros(4)
-                                   ), dim=0)
-            
-        if self.cfg.env.observe_yaw:
-            noise_vec = torch.cat((noise_vec,
-                                   torch.zeros(1),
-                                   ), dim=0)
-            
-        if self.cfg.env.observe_contact_states:
-            noise_vec = torch.cat((noise_vec,
-                                   torch.ones(4) * noise_scales.contact_states * noise_level,
-                                   ), dim=0)
-            
-        noise_vec = noise_vec.to(self.device)
-
-        return noise_vec
 
     def _get_heights(self, env_ids, cfg):
         """ Samples heights of the terrain at required points around each robot.

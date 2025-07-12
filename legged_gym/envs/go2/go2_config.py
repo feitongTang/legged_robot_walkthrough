@@ -2,8 +2,17 @@ from legged_gym.envs.base.legged_robot_config import LeggedRobotCfg, LeggedRobot
 
 class GO2RoughCfg( LeggedRobotCfg ):
     class env(LeggedRobotCfg.env):
-        num_observations = 45
-        num_privileged_obs = 50
+        """
+        base_ang_vel shape: 3
+        projected_gravity shape: 3
+        commands shape: 15
+        dof_pos shape: 12
+        dof_vel shape: 12
+        actions shape: 12
+        """
+        num_observations = 57   # 3 + 3 + num_commands + 12 + 12 + 12
+        num_privileged_obs = None
+        # num_privileged_obs = 62
         num_actions = 12
 
         observe_two_prev_actions = False
@@ -12,7 +21,7 @@ class GO2RoughCfg( LeggedRobotCfg ):
         observe_yaw = False
         observe_contact_states = False
 
-        observe_gait_commands = True
+        observe_gait_commands = False   # True
 
         priv_observe_friction = True
         priv_observe_ground_friction = False
@@ -27,12 +36,12 @@ class GO2RoughCfg( LeggedRobotCfg ):
         priv_observe_desired_contact_states = False
 
     class commands( LeggedRobotCfg.commands ):
-        num_commands = 9
-        exclusive_phase_offset = True
+        num_commands = 15
+        exclusive_phase_offset = False  # True
         binary_phases = False
         pacing_offset = False
-        balance_gait_distribution = True
-        gaitwise_curricula = True
+        balance_gait_distribution = False   # True
+        gaitwise_curricula = False  # True
         curriculum_type = "RewardThresholdCurriculum"
         curriculum_seed = 207
         global_reference = False
