@@ -185,7 +185,7 @@ class LeggedRobot(BaseTask):
         self.obs_buf = torch.cat((  self.base_lin_vel * self.obs_scales.lin_vel,
                                     self.base_ang_vel  * self.obs_scales.ang_vel,
                                     self.projected_gravity,
-                                    self.commands[:, :3] * self.commands_scale,
+                                    self.commands * self.commands_scale,
                                     (self.dof_pos - self.default_dof_pos) * self.obs_scales.dof_pos,
                                     self.dof_vel * self.obs_scales.dof_vel,
                                     self.actions
@@ -301,9 +301,10 @@ class LeggedRobot(BaseTask):
             self.commands[env_ids, 3] = torch_rand_float(self.command_ranges["heading"][0], self.command_ranges["heading"][1], (len(env_ids), 1), device=self.device).squeeze(1)
         else:
             self.commands[env_ids, 2] = torch_rand_float(self.command_ranges["ang_vel_yaw"][0], self.command_ranges["ang_vel_yaw"][1], (len(env_ids), 1), device=self.device).squeeze(1)
+        self.commands[env_ids, 4] = torch_rand_float(self.command_ranges["body_height"][0], self.command_ranges["body_height"][1], (len(env_ids), 1), device=self.device).squeeze(1)
 
         # set small commands to zero
-        self.commands[env_ids, :2] *= (torch.norm(self.commands[env_ids, :2], dim=1) > 0.2).unsqueeze(1)
+        self.commands[env_ids, :] *= (torch.norm(self.commands[env_ids, :2], dim=1) > 0.2).unsqueeze(1)
 
     def _compute_torques(self, actions):
         """ Compute torques from actions.
@@ -411,10 +412,10 @@ class LeggedRobot(BaseTask):
         noise_level = self.cfg.noise.noise_level
         noise_vec[:3] = noise_scales.ang_vel * noise_level * self.obs_scales.ang_vel
         noise_vec[3:6] = noise_scales.gravity * noise_level
-        noise_vec[6:9] = 0. # commands
-        noise_vec[9:9+self.num_actions] = noise_scales.dof_pos * noise_level * self.obs_scales.dof_pos
-        noise_vec[9+self.num_actions:9+2*self.num_actions] = noise_scales.dof_vel * noise_level * self.obs_scales.dof_vel
-        noise_vec[9+2*self.num_actions:9+3*self.num_actions] = 0. # previous actions
+        noise_vec[6:6 + self.commands.num_commands] = 0. # commands
+        noise_vec[6 + self.commands.num_commands:6 + self.commands.num_commands+self.num_actions] = noise_scales.dof_pos * noise_level * self.obs_scales.dof_pos
+        noise_vec[6 + self.commands.num_commands+self.num_actions:6 + self.commands.num_commands+2*self.num_actions] = noise_scales.dof_vel * noise_level * self.obs_scales.dof_vel
+        noise_vec[6 + self.commands.num_commands+2*self.num_actions:6 + self.commands.num_commands+3*self.num_actions] = 0. # previous actions
 
         return noise_vec
 
@@ -454,7 +455,12 @@ class LeggedRobot(BaseTask):
         self.last_dof_vel = torch.zeros_like(self.dof_vel)
         self.last_root_vel = torch.zeros_like(self.root_states[:, 7:13])
         self.commands = torch.zeros(self.num_envs, self.cfg.commands.num_commands, dtype=torch.float, device=self.device, requires_grad=False) # x vel, y vel, yaw vel, heading
-        self.commands_scale = torch.tensor([self.obs_scales.lin_vel, self.obs_scales.lin_vel, self.obs_scales.ang_vel], device=self.device, requires_grad=False,) # TODO change this
+        self.commands_scale = torch.tensor([
+            self.obs_scales.lin_vel,
+            self.obs_scales.lin_vel,
+            self.obs_scales.ang_vel,
+            self.obs_scales.height_measurements
+        ], device=self.device, requires_grad=False,)
         self.feet_air_time = torch.zeros(self.num_envs, self.feet_indices.shape[0], dtype=torch.float, device=self.device, requires_grad=False)
         self.last_contacts = torch.zeros(self.num_envs, len(self.feet_indices), dtype=torch.bool, device=self.device, requires_grad=False)
         self.base_lin_vel = quat_rotate_inverse(self.base_quat, self.root_states[:, 7:10])
@@ -648,7 +654,8 @@ class LeggedRobot(BaseTask):
     def _reward_base_height(self):
         # Penalize base height away from target
         base_height = self.root_states[:, 2]
-        return torch.square(base_height - self.cfg.rewards.base_height_target)
+        desired_height = self.env.commands[:, 3:4]
+        return torch.square(base_height - desired_height)
     
     def _reward_torques(self):
         # Penalize torques
