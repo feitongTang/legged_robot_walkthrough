@@ -406,17 +406,16 @@ class LeggedRobot(BaseTask):
         Returns:
             [torch.Tensor]: Vector of scales used to multiply a uniform distribution in [-1, 1]
         """
-        noise_vec = torch.zeros_like(self.obs_buf[0])
+        noise_vec = torch.zeros(6 + self.cfg.commands.num_commands + 3 * self.num_actions, dtype=torch.float, device=self.device, requires_grad=False)
         self.add_noise = self.cfg.noise.add_noise
         noise_scales = self.cfg.noise.noise_scales
         noise_level = self.cfg.noise.noise_level
         noise_vec[:3] = noise_scales.ang_vel * noise_level * self.obs_scales.ang_vel
         noise_vec[3:6] = noise_scales.gravity * noise_level
-        noise_vec[6:6 + self.commands.num_commands] = 0. # commands
-        noise_vec[6 + self.commands.num_commands:6 + self.commands.num_commands+self.num_actions] = noise_scales.dof_pos * noise_level * self.obs_scales.dof_pos
-        noise_vec[6 + self.commands.num_commands+self.num_actions:6 + self.commands.num_commands+2*self.num_actions] = noise_scales.dof_vel * noise_level * self.obs_scales.dof_vel
-        noise_vec[6 + self.commands.num_commands+2*self.num_actions:6 + self.commands.num_commands+3*self.num_actions] = 0. # previous actions
-
+        noise_vec[6:6 + self.cfg.commands.num_commands] = 0. # commands
+        noise_vec[6 + self.cfg.commands.num_commands:6 + self.cfg.commands.num_commands+self.num_actions] = noise_scales.dof_pos * noise_level * self.obs_scales.dof_pos
+        noise_vec[6 + self.cfg.commands.num_commands+self.num_actions:6 + self.cfg.commands.num_commands+2*self.num_actions] = noise_scales.dof_vel * noise_level * self.obs_scales.dof_vel
+        noise_vec[6 + self.cfg.commands.num_commands+2*self.num_actions:6 + self.cfg.commands.num_commands+3*self.num_actions] = 0. # previous actions
         return noise_vec
 
     #----------------------------------------
@@ -458,6 +457,7 @@ class LeggedRobot(BaseTask):
         self.commands_scale = torch.tensor([
             self.obs_scales.lin_vel,
             self.obs_scales.lin_vel,
+            self.obs_scales.ang_vel,
             self.obs_scales.ang_vel,
             self.obs_scales.height_measurements
         ], device=self.device, requires_grad=False,)
@@ -653,9 +653,8 @@ class LeggedRobot(BaseTask):
 
     def _reward_base_height(self):
         # Penalize base height away from target
-        base_height = self.root_states[:, 2]
-        desired_height = self.env.commands[:, 3:4]
-        return torch.square(base_height - desired_height)
+        height_error = torch.square(self.commands[:, 4] + 1 - self.root_states[:, 2])
+        return torch.exp(-height_error/self.cfg.rewards.tracking_sigma)
     
     def _reward_torques(self):
         # Penalize torques
@@ -731,3 +730,34 @@ class LeggedRobot(BaseTask):
     def _reward_feet_contact_forces(self):
         # penalize high contact forces
         return torch.sum((torch.norm(self.contact_forces[:, self.feet_indices, :], dim=-1) -  self.cfg.rewards.max_contact_force).clip(min=0.), dim=1)
+    
+    def _reward_raibert_heuristic(self):
+        cur_footsteps_translated = self.env.foot_positions - self.env.base_pos.unsqueeze(1)
+        footsteps_in_body_frame = torch.zeros(self.env.num_envs, 4, 3, device=self.env.device)
+        for i in range(4):
+            footsteps_in_body_frame[:, i, :] = quat_apply_yaw(quat_conjugate(self.env.base_quat),
+                                                              cur_footsteps_translated[:, i, :])
+
+        # nominal positions: [FR, FL, RR, RL]
+        if self.env.cfg.commands.num_commands >= 13:
+            desired_stance_width = self.env.commands[:, 12:13]
+            desired_ys_nom = torch.cat([desired_stance_width / 2, -desired_stance_width / 2, desired_stance_width / 2, -desired_stance_width / 2], dim=1)
+        else:
+            desired_stance_width = 0.3
+            desired_ys_nom = torch.tensor([desired_stance_width / 2,  -desired_stance_width / 2, desired_stance_width / 2, -desired_stance_width / 2], device=self.env.device).unsqueeze(0)
+
+        if self.env.cfg.commands.num_commands >= 14:
+            desired_stance_length = self.env.commands[:, 13:14]
+            desired_xs_nom = torch.cat([desired_stance_length / 2, desired_stance_length / 2, -desired_stance_length / 2, -desired_stance_length / 2], dim=1)
+        else:
+            desired_stance_length = 0.45
+            desired_xs_nom = torch.tensor([desired_stance_length / 2,  desired_stance_length / 2, -desired_stance_length / 2, -desired_stance_length / 2], device=self.env.device).unsqueeze(0)
+
+
+        desired_footsteps_body_frame = torch.cat((desired_xs_nom.unsqueeze(2), desired_ys_nom.unsqueeze(2)), dim=2)
+
+        err_raibert_heuristic = torch.abs(desired_footsteps_body_frame - footsteps_in_body_frame[:, :, 0:2])
+
+        reward = torch.sum(torch.square(err_raibert_heuristic), dim=(1, 2))
+
+        return reward

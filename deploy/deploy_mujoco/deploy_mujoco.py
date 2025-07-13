@@ -45,17 +45,9 @@ def key_callback(key):
         elif key.char == '7':
             cmd[0] -= 0.5
         elif key.char == '8':
-            cmd[1] += 0.5
+            cmd[4] += 0.1
         elif key.char == '9':
-            cmd[1] -= 0.5
-        elif key.char == '-':
-            cmd[2] += 0.5
-        elif key.char == '=':
-            cmd[2] -= 0.5
-        elif key.char == '0':
-            cmd[0] = 0
-            cmd[1] = 0
-            cmd[2] = 0
+            cmd[4] -= 0.1
     except AttributeError:
         pass
 
@@ -93,6 +85,7 @@ if __name__ == "__main__":
 
         num_actions = config["num_actions"]
         num_obs = config["num_obs"]
+        num_cmds = config["num_cmds"]
         
         cmd = np.array(config["cmd_init"], dtype=np.float32)
 
@@ -157,10 +150,10 @@ if __name__ == "__main__":
                 # 步态相位（sin/cos）
                 obs[:3] = omega
                 obs[3:6] = gravity_orientation
-                obs[6:9] = cmd * cmd_scale
-                obs[9 : 9 + num_actions] = qj
-                obs[9 + num_actions : 9 + 2 * num_actions] = dqj
-                obs[9 + 2 * num_actions : 9 + 3 * num_actions] = action
+                obs[6:6 + num_cmds] = cmd * cmd_scale
+                obs[6 + num_cmds : 6 + num_cmds + num_actions] = qj
+                obs[6 + num_cmds + num_actions : 6 + num_cmds + 2 * num_actions] = dqj
+                obs[6 + num_cmds + 2 * num_actions : 6 + num_cmds + 3 * num_actions] = action
                 obs_tensor = torch.from_numpy(obs).unsqueeze(0)
                 # policy inference
                 action = policy(obs_tensor).detach().numpy().squeeze()

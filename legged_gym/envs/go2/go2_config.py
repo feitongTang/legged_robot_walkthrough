@@ -2,13 +2,8 @@ from legged_gym.envs.base.legged_robot_config import LeggedRobotCfg, LeggedRobot
 
 class GO2RoughCfg( LeggedRobotCfg ):
     class env(LeggedRobotCfg.env):
-        num_observations = 45
-        # num_privileged_obs = 45
+        num_observations = 47
         num_actions = 12
-
-    class commands ( LeggedRobotCfg.commands ):
-        class ranges( LeggedRobotCfg.commands.ranges ):
-            body_height = [-0.2, 0.2]   # min max [m]
 
     class init_state( LeggedRobotCfg.init_state ):
         pos = [0.0, 0.0, 0.42] # x,y,z [m]

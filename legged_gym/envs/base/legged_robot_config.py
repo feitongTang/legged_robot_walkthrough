@@ -39,15 +39,17 @@ class LeggedRobotCfg(BaseConfig):
     class commands:
         curriculum = False
         max_curriculum = 1.
-        num_commands = 4 # lin_vel_x, lin_vel_y, ang_vel_yaw, body_height
+        num_commands = 5 # lin_vel_x, lin_vel_y, ang_vel_yaw, body_height
         resampling_time = 10. # time before command are changed[s]
         heading_command = True # if true: compute ang vel command from heading error
         class ranges:
             lin_vel_x = [-1.0, 1.0] # min max [m/s]
             lin_vel_y = [-1.0, 1.0]   # min max [m/s]
             ang_vel_yaw = [-1, 1]    # min max [rad/s]
-            
             heading = [-3.14, 3.14]
+            body_height = [-0.5, 0.5]   # min max [m]
+            stance_width_range = [0.0, 0.01]
+            stance_length_range = [0.0, 0.01]
 
     class init_state:
         pos = [0.0, 0.0, 1.] # x,y,z [m]
@@ -110,12 +112,13 @@ class LeggedRobotCfg(BaseConfig):
             torques = -0.00001
             dof_vel = -0.
             dof_acc = -2.5e-7
-            base_height = -0. 
+            base_height = 1
             feet_air_time =  1.0
             collision = -1.
             feet_stumble = -0.0 
             action_rate = -0.01
             stand_still = -0.
+            raibert_heuristic = 0.5
 
         only_positive_rewards = True # if true negative total rewards are clipped at zero (avoids early termination problems)
         tracking_sigma = 0.25 # tracking reward = exp(-error^2/sigma)
@@ -131,7 +134,7 @@ class LeggedRobotCfg(BaseConfig):
             ang_vel = 0.25
             dof_pos = 1.0
             dof_vel = 0.05
-            height_measurements = 5.0
+            height_measurements = 3
         clip_observations = 100.
         clip_actions = 100.
 
