@@ -2,7 +2,7 @@ from legged_gym.envs.base.legged_robot_config import LeggedRobotCfg, LeggedRobot
 
 class GO2RoughCfg( LeggedRobotCfg ):
     class env(LeggedRobotCfg.env):
-        num_observations = 47
+        num_observations = 46
         num_actions = 12
 
     class init_state( LeggedRobotCfg.init_state ):

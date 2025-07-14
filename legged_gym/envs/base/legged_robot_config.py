@@ -39,7 +39,7 @@ class LeggedRobotCfg(BaseConfig):
     class commands:
         curriculum = False
         max_curriculum = 1.
-        num_commands = 5 # lin_vel_x, lin_vel_y, ang_vel_yaw, body_height
+        num_commands = 4 # lin_vel_x, lin_vel_y, ang_vel_yaw, body_height
         resampling_time = 10. # time before command are changed[s]
         heading_command = True # if true: compute ang vel command from heading error
         class ranges:
@@ -103,22 +103,28 @@ class LeggedRobotCfg(BaseConfig):
 
     class rewards:
         class scales:
-            termination = -0.0
-            tracking_lin_vel = 1.0
-            tracking_ang_vel = 0.5
-            lin_vel_z = -2.0
-            ang_vel_xy = -0.05
-            orientation = -0.
-            torques = -0.00001
-            dof_vel = -0.
-            dof_acc = -2.5e-7
-            base_height = 1
-            feet_air_time =  1.0
-            collision = -1.
-            feet_stumble = -0.0 
-            action_rate = -0.01
-            stand_still = -0.
-            raibert_heuristic = 0.5
+            # tasks
+            tracking_lin_vel = 0.02
+            tracking_ang_vel = 0.01
+
+            # augmented auxiliary
+            body_height_tracking = -0.2
+            raibert_heuristic = -0.2
+            feet_air_time =  0.6
+
+            # fixed auxiliary
+            lin_vel_z = -4e-4
+            ang_vel_xy = -2e-5
+            feet_slip = -8e-4
+            collision = -0.02
+            dof_pos_limits = -0.2
+            dof_vel_limits = -0.2
+            torque_limits = -0.2
+            torques = -2e-5
+            dof_vel = -2e-5
+            dof_acc = -5e-9
+            action_smoothness_1 = -2e-3
+            action_smoothness_2 = -2e-3
 
         only_positive_rewards = True # if true negative total rewards are clipped at zero (avoids early termination problems)
         tracking_sigma = 0.25 # tracking reward = exp(-error^2/sigma)
