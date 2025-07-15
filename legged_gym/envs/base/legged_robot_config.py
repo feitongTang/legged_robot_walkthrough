@@ -157,6 +157,8 @@ class LeggedRobotCfg(BaseConfig):
         gravity = [0., 0. ,-9.81]  # [m/s^2]
         up_axis = 1  # 0 is y, 1 is z
 
+        use_gpu_pipeline = True
+
         class physx:
             num_threads = 10
             solver_type = 1  # 0: pgs, 1: tgs
