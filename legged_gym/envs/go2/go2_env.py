@@ -6,6 +6,53 @@ from isaacgym import gymtorch, gymapi, gymutil
 import torch
 
 class Go2Robot(LeggedRobot):
+    def _create_envs(self):
+        super()._create_envs()
+        self._init_custom_buffers__()
+        self._randomize_rigid_body_props()
+        self._randomize_gravity()
+
+    def _randomize_gravity(self, external_force = None):
+
+        if external_force is not None:
+            self.gravities[:, :] = external_force.unsqueeze(0)
+        elif self.cfg.domain_rand.randomize_gravity:
+            min_gravity, max_gravity = self.cfg.domain_rand.gravity_range
+            external_force = torch.rand(3, dtype=torch.float, device=self.device,
+                                        requires_grad=False) * (max_gravity - min_gravity) + min_gravity
+
+            self.gravities[:, :] = external_force.unsqueeze(0)
+
+        sim_params = self.gym.get_sim_params(self.sim)
+        gravity = self.gravities[0, :] + torch.Tensor([0, 0, -9.8]).to(self.device)
+        self.gravity_vec[:, :] = gravity.unsqueeze(0) / torch.norm(gravity)
+        sim_params.gravity = gymapi.Vec3(gravity[0], gravity[1], gravity[2])
+        self.gym.set_sim_params(self.sim, sim_params)
+
+    def _randomize_rigid_body_props(self):
+        if self.cfg.domain_rand.randomize_base_mass:
+            min_payload, max_payload = self.cfg.domain_rand.added_mass_range
+            # self.payloads[env_ids] = -1.0
+            self.payloads[:] = torch.rand(self.num_envs, dtype=torch.float, device=self.device,
+                                                requires_grad=False) * (max_payload - min_payload) + min_payload
+        if self.cfg.domain_rand.randomize_com_displacement:
+            min_com_displacement, max_com_displacement = self.cfg.domain_rand.com_displacement_range
+            self.com_displacements[:, :] = torch.rand(self.num_envs, 3, dtype=torch.float, device=self.device,
+                                                            requires_grad=False) * (
+                                                         max_com_displacement - min_com_displacement) + min_com_displacement
+
+        if self.cfg.domain_rand.randomize_friction:
+            min_friction, max_friction = self.cfg.domain_rand.friction_range
+            self.friction_coeffs[:, :] = torch.rand(self.num_envs, 1, dtype=torch.float, device=self.device,
+                                                          requires_grad=False) * (
+                                                       max_friction - min_friction) + min_friction
+
+        if self.cfg.domain_rand.randomize_restitution:
+            min_restitution, max_restitution = self.cfg.domain_rand.restitution_range
+            self.restitutions[:] = torch.rand(self.num_envs, 1, dtype=torch.float, device=self.device,
+                                                    requires_grad=False) * (
+                                                 max_restitution - min_restitution) + min_restitution
+
     def _init_buffers(self):
         super()._init_buffers()
         self.net_contact_forces = gymtorch.wrap_tensor(self.gym.acquire_net_contact_force_tensor(self.sim))[:self.num_envs * self.num_bodies, :]
@@ -42,14 +89,6 @@ class Go2Robot(LeggedRobot):
                                      requires_grad=False)
         self.gravity_vec = to_torch(get_axis_params(-1., self.up_axis_idx), device=self.device).repeat(
             (self.num_envs, 1))
-
-        # if custom initialization values were passed in, set them here
-        dynamics_params = ["friction_coeffs", "restitutions", "payloads", "com_displacements", "motor_strengths",
-                           "Kp_factors", "Kd_factors"]
-        if self.initial_dynamics_dict is not None:
-            for k, v in self.initial_dynamics_dict.items():
-                if k in dynamics_params:
-                    setattr(self, k, v.to(self.device))
 
         self.gait_indices = torch.zeros(self.num_envs, dtype=torch.float, device=self.device,
                                         requires_grad=False)

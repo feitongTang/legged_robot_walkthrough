@@ -593,6 +593,10 @@ class LeggedRobot(BaseTask):
         env_upper = gymapi.Vec3(0., 0., 0.)
         self.actor_handles = []
         self.envs = []
+
+        self.default_friction = rigid_shape_props_asset[1].friction
+        self.default_restitution = rigid_shape_props_asset[1].restitution
+
         for i in range(self.num_envs):
             # create env instance
             env_handle = self.gym.create_env(self.sim, env_lower, env_upper, int(np.sqrt(self.num_envs)))
