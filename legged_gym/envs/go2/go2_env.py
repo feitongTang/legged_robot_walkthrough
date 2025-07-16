@@ -6,6 +6,60 @@ from isaacgym import gymtorch, gymapi, gymutil
 import torch
 
 class Go2Robot(LeggedRobot):
+    def _init_buffers(self):
+        super()._init_buffers()
+        self.net_contact_forces = gymtorch.wrap_tensor(self.gym.acquire_net_contact_force_tensor(self.sim))[:self.num_envs * self.num_bodies, :]
+        self.base_pos = self.root_states[:self.num_envs, 0:3]
+        self.foot_velocities = self.rigid_body_state.view(self.num_envs, self.num_bodies, 13)[:,
+                               self.feet_indices,
+                               7:10]
+        self.foot_positions = self.rigid_body_state.view(self.num_envs, self.num_bodies, 13)[:, self.feet_indices,
+                              0:3]
+        self.prev_base_pos = self.base_pos.clone()
+        self.prev_foot_velocities = self.foot_velocities.clone()
+        self.lag_buffer = [torch.zeros_like(self.dof_pos) for i in range(self.cfg.domain_rand.lag_timesteps+1)]
+        self.desired_contact_states = torch.zeros(self.num_envs, 4, dtype=torch.float, device=self.device,
+                                                  requires_grad=False, )
+        
+    def _init_custom_buffers__(self):
+        # domain randomization properties
+        self.friction_coeffs = self.default_friction * torch.ones(self.num_envs, 4, dtype=torch.float, device=self.device,
+                                                                  requires_grad=False)
+        self.restitutions = self.default_restitution * torch.ones(self.num_envs, 4, dtype=torch.float, device=self.device,
+                                                                  requires_grad=False)
+        self.payloads = torch.zeros(self.num_envs, dtype=torch.float, device=self.device, requires_grad=False)
+        self.com_displacements = torch.zeros(self.num_envs, 3, dtype=torch.float, device=self.device,
+                                             requires_grad=False)
+        self.motor_strengths = torch.ones(self.num_envs, self.num_dof, dtype=torch.float, device=self.device,
+                                          requires_grad=False)
+        self.motor_offsets = torch.zeros(self.num_envs, self.num_dof, dtype=torch.float, device=self.device,
+                                         requires_grad=False)
+        self.Kp_factors = torch.ones(self.num_envs, self.num_dof, dtype=torch.float, device=self.device,
+                                     requires_grad=False)
+        self.Kd_factors = torch.ones(self.num_envs, self.num_dof, dtype=torch.float, device=self.device,
+                                     requires_grad=False)
+        self.gravities = torch.zeros(self.num_envs, 3, dtype=torch.float, device=self.device,
+                                     requires_grad=False)
+        self.gravity_vec = to_torch(get_axis_params(-1., self.up_axis_idx), device=self.device).repeat(
+            (self.num_envs, 1))
+
+        # if custom initialization values were passed in, set them here
+        dynamics_params = ["friction_coeffs", "restitutions", "payloads", "com_displacements", "motor_strengths",
+                           "Kp_factors", "Kd_factors"]
+        if self.initial_dynamics_dict is not None:
+            for k, v in self.initial_dynamics_dict.items():
+                if k in dynamics_params:
+                    setattr(self, k, v.to(self.device))
+
+        self.gait_indices = torch.zeros(self.num_envs, dtype=torch.float, device=self.device,
+                                        requires_grad=False)
+        self.clock_inputs = torch.zeros(self.num_envs, 4, dtype=torch.float, device=self.device,
+                                        requires_grad=False)
+        self.doubletime_clock_inputs = torch.zeros(self.num_envs, 4, dtype=torch.float, device=self.device,
+                                                   requires_grad=False)
+        self.halftime_clock_inputs = torch.zeros(self.num_envs, 4, dtype=torch.float, device=self.device,
+                                                 requires_grad=False)
+
     def compute_observations(self):
         """ Computes observations
         """
