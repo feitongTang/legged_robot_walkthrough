@@ -32,76 +32,76 @@ class Go2Robot(LeggedRobot):
                                    < self.cfg.rewards.terminal_body_height
             self.reset_buf = torch.logical_or(self.body_height_buf, self.reset_buf)
 
-    # def reset_idx(self, env_ids):
-    #     if len(env_ids) == 0:
-    #         return
+    def reset_idx(self, env_ids):
+        if len(env_ids) == 0:
+            return
         
-    #     # reset robot states
-    #     self._resample_commands(env_ids)
-    #     self._randomize_dof_props(env_ids)
-    #     if self.cfg.domain_rand.randomize_rigids_after_start:
-    #         self._randomize_rigid_body_props(env_ids)
-    #         self.refresh_actor_rigid_shape_props(env_ids)
+        # reset robot states
+        self._resample_commands(env_ids)
+        self._randomize_dof_props(env_ids)
+        if self.cfg.domain_rand.randomize_rigids_after_start:
+            self._randomize_rigid_body_props(env_ids)
+            self.refresh_actor_rigid_shape_props(env_ids)
 
-    #     self._reset_dofs(env_ids)
-    #     self._reset_root_states(env_ids)
+        self._reset_dofs(env_ids)
+        self._reset_root_states(env_ids)
 
-    #     # reset buffers
-    #     self.last_actions[env_ids] = 0.
-    #     self.last_last_actions[env_ids] = 0.
-    #     self.last_dof_vel[env_ids] = 0.
-    #     self.feet_air_time[env_ids] = 0.
-    #     self.episode_length_buf[env_ids] = 0
-    #     self.reset_buf[env_ids] = 1
+        # reset buffers
+        self.last_actions[env_ids] = 0.
+        self.last_last_actions[env_ids] = 0.
+        self.last_dof_vel[env_ids] = 0.
+        self.feet_air_time[env_ids] = 0.
+        self.episode_length_buf[env_ids] = 0
+        self.reset_buf[env_ids] = 1
 
-    #     self.extras["episode"] = {}
-    #     for key in self.episode_sums.keys():
-    #         self.extras["episode"]['rew_' + key] = torch.mean(
-    #             self.episode_sums[key][env_ids])
-    #         self.episode_sums[key][env_ids] = 0.
+        self.extras["episode"] = {}
+        for key in self.episode_sums.keys():
+            self.extras["episode"]['rew_' + key] = torch.mean(
+                self.episode_sums[key][env_ids])
+            self.episode_sums[key][env_ids] = 0.
 
-    #     if self.cfg.terrain.curriculum:
-    #         self.extras["episode"]["terrain_level"] = torch.mean(
-    #             self.terrain_levels[:self.num_envs].float())
-    #     if self.cfg.commands.command_curriculum:
-    #         self.extras["env_bins"] = torch.Tensor(self.env_command_bins)[:self.num_envs]
-    #         self.extras["episode"]["min_command_duration"] = torch.min(self.commands[:, 8])
-    #         self.extras["episode"]["max_command_duration"] = torch.max(self.commands[:, 8])
-    #         self.extras["episode"]["min_command_bound"] = torch.min(self.commands[:, 7])
-    #         self.extras["episode"]["max_command_bound"] = torch.max(self.commands[:, 7])
-    #         self.extras["episode"]["min_command_offset"] = torch.min(self.commands[:, 6])
-    #         self.extras["episode"]["max_command_offset"] = torch.max(self.commands[:, 6])
-    #         self.extras["episode"]["min_command_phase"] = torch.min(self.commands[:, 5])
-    #         self.extras["episode"]["max_command_phase"] = torch.max(self.commands[:, 5])
-    #         self.extras["episode"]["min_command_freq"] = torch.min(self.commands[:, 4])
-    #         self.extras["episode"]["max_command_freq"] = torch.max(self.commands[:, 4])
-    #         self.extras["episode"]["min_command_x_vel"] = torch.min(self.commands[:, 0])
-    #         self.extras["episode"]["max_command_x_vel"] = torch.max(self.commands[:, 0])
-    #         self.extras["episode"]["min_command_y_vel"] = torch.min(self.commands[:, 1])
-    #         self.extras["episode"]["max_command_y_vel"] = torch.max(self.commands[:, 1])
-    #         self.extras["episode"]["min_command_yaw_vel"] = torch.min(self.commands[:, 2])
-    #         self.extras["episode"]["max_command_yaw_vel"] = torch.max(self.commands[:, 2])
-    #         if self.cfg.commands.num_commands > 9:
-    #             self.extras["episode"]["min_command_swing_height"] = torch.min(self.commands[:, 9])
-    #             self.extras["episode"]["max_command_swing_height"] = torch.max(self.commands[:, 9])
-    #         for curriculum, category in zip(self.curricula, self.category_names):
-    #             self.extras["episode"][f"command_area_{category}"] = np.sum(curriculum.weights) / \
-    #                                                                        curriculum.weights.shape[0]
+        if self.cfg.terrain.curriculum:
+            self.extras["episode"]["terrain_level"] = torch.mean(
+                self.terrain_levels[:self.num_envs].float())
+        if self.cfg.commands.command_curriculum:
+            self.extras["env_bins"] = torch.Tensor(self.env_command_bins)[:self.num_envs]
+            self.extras["episode"]["min_command_duration"] = torch.min(self.commands[:, 8])
+            self.extras["episode"]["max_command_duration"] = torch.max(self.commands[:, 8])
+            self.extras["episode"]["min_command_bound"] = torch.min(self.commands[:, 7])
+            self.extras["episode"]["max_command_bound"] = torch.max(self.commands[:, 7])
+            self.extras["episode"]["min_command_offset"] = torch.min(self.commands[:, 6])
+            self.extras["episode"]["max_command_offset"] = torch.max(self.commands[:, 6])
+            self.extras["episode"]["min_command_phase"] = torch.min(self.commands[:, 5])
+            self.extras["episode"]["max_command_phase"] = torch.max(self.commands[:, 5])
+            self.extras["episode"]["min_command_freq"] = torch.min(self.commands[:, 4])
+            self.extras["episode"]["max_command_freq"] = torch.max(self.commands[:, 4])
+            self.extras["episode"]["min_command_x_vel"] = torch.min(self.commands[:, 0])
+            self.extras["episode"]["max_command_x_vel"] = torch.max(self.commands[:, 0])
+            self.extras["episode"]["min_command_y_vel"] = torch.min(self.commands[:, 1])
+            self.extras["episode"]["max_command_y_vel"] = torch.max(self.commands[:, 1])
+            self.extras["episode"]["min_command_yaw_vel"] = torch.min(self.commands[:, 2])
+            self.extras["episode"]["max_command_yaw_vel"] = torch.max(self.commands[:, 2])
+            if self.cfg.commands.num_commands > 9:
+                self.extras["episode"]["min_command_swing_height"] = torch.min(self.commands[:, 9])
+                self.extras["episode"]["max_command_swing_height"] = torch.max(self.commands[:, 9])
+            for curriculum, category in zip(self.curricula, self.category_names):
+                self.extras["episode"][f"command_area_{category}"] = np.sum(curriculum.weights) / \
+                                                                           curriculum.weights.shape[0]
 
-    #         self.extras["episode"]["min_action"] = torch.min(self.actions)
-    #         self.extras["episode"]["max_action"] = torch.max(self.actions)
+            self.extras["episode"]["min_action"] = torch.min(self.actions)
+            self.extras["episode"]["max_action"] = torch.max(self.actions)
 
-    #         self.extras["curriculum/distribution"] = {}
-    #         for curriculum, category in zip(self.curricula, self.category_names):
-    #             self.extras[f"curriculum/distribution"][f"weights_{category}"] = curriculum.weights
-    #             self.extras[f"curriculum/distribution"][f"grid_{category}"] = curriculum.grid
-    #     if self.cfg.env.send_timeouts:
-    #         self.extras["time_outs"] = self.time_out_buf[:self.num_envs]
+            self.extras["curriculum/distribution"] = {}
+            for curriculum, category in zip(self.curricula, self.category_names):
+                self.extras[f"curriculum/distribution"][f"weights_{category}"] = curriculum.weights
+                self.extras[f"curriculum/distribution"][f"grid_{category}"] = curriculum.grid
+        if self.cfg.env.send_timeouts:
+            self.extras["time_outs"] = self.time_out_buf[:self.num_envs]
 
-    #     self.gait_indices[env_ids] = 0
+        self.gait_indices[env_ids] = 0
 
-    #     for i in range(len(self.lag_buffer)):
-    #         self.lag_buffer[i][env_ids, :] = 0
+        for i in range(len(self.lag_buffer)):
+            self.lag_buffer[i][env_ids, :] = 0
 
     def compute_reward(self):
         self.rew_buf[:] = 0.
