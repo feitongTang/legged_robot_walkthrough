@@ -104,13 +104,13 @@ class CoRLRewards:
         diff = diff * (self.env.last_last_actions[:, :self.env.num_dof] != 0)  # ignore second step
         return torch.sum(diff, dim=1)
 
-    # def _reward_feet_slip(self):
-    #     contact = self.env.contact_forces[:, self.env.feet_indices, 2] > 1.
-    #     contact_filt = torch.logical_or(contact, self.env.last_contacts)
-    #     self.env.last_contacts = contact
-    #     foot_velocities = torch.square(torch.norm(self.env.foot_velocities[:, :, 0:2], dim=2).view(self.env.num_envs, -1))
-    #     rew_slip = torch.sum(contact_filt * foot_velocities, dim=1)
-    #     return rew_slip
+    def _reward_feet_slip(self):
+        contact = self.env.contact_forces[:, self.env.feet_indices, 2] > 1.
+        contact_filt = torch.logical_or(contact, self.env.last_contacts)
+        self.env.last_contacts = contact
+        foot_velocities = torch.square(torch.norm(self.env.foot_velocities[:, :, 0:2], dim=2).view(self.env.num_envs, -1))
+        rew_slip = torch.sum(contact_filt * foot_velocities, dim=1)
+        return rew_slip
 
     def _reward_feet_contact_vel(self):
         reference_heights = 0

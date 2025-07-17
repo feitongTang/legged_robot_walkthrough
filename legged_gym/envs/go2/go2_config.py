@@ -2,14 +2,14 @@ from legged_gym.envs.base.legged_robot_config import LeggedRobotCfg, LeggedRobot
 
 class GO2RoughCfg( LeggedRobotCfg ):
     class env(LeggedRobotCfg.env):
-        num_observations = 57
-        num_scalar_observations = 57
+        num_observations = 69
+        num_scalar_observations = 69
         # if not None a privilige_obs_buf will be returned by step() (critic obs for assymetric training). None is returned otherwise
-        num_privileged_obs = 2
+        num_privileged_obs =71
         privileged_future_horizon = 1
         num_observation_history = 30
         observe_vel = False
-        observe_only_ang_vel = False
+        observe_only_ang_vel = True
         observe_only_lin_vel = False
         observe_yaw = False
         observe_contact_states = False
@@ -17,14 +17,9 @@ class GO2RoughCfg( LeggedRobotCfg ):
         observe_height_command = False
         observe_gait_commands = True
         observe_timing_parameter = False
-        observe_clock_inputs = True
+        observe_clock_inputs = False
         observe_two_prev_actions = True
         observe_imu = False
-        record_video = True
-        recording_width_px = 360
-        recording_height_px = 240
-        recording_mode = "COLOR"
-        num_recording_envs = 1
         debug_viz = False
         all_agents_share = False
 
