@@ -145,6 +145,12 @@ class LeggedRobotCfg(BaseConfig):
             gravity = 0.05
             height_measurements = 0.1
 
+    class curriculum_thresholds:
+        tracking_lin_vel = 0.8  # closer to 1 is tighter
+        tracking_ang_vel = 0.7
+        tracking_contacts_shaped_force = 0.9  # closer to 1 is tighter
+        tracking_contacts_shaped_vel = 0.9
+
     # viewer camera:
     class viewer:
         ref_env = 0

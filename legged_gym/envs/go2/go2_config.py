@@ -5,7 +5,7 @@ class GO2RoughCfg( LeggedRobotCfg ):
         num_observations = 69
         num_scalar_observations = 69
         # if not None a privilige_obs_buf will be returned by step() (critic obs for assymetric training). None is returned otherwise
-        num_privileged_obs =71
+        num_privileged_obs = 71
         privileged_future_horizon = 1
         num_observation_history = 30
         observe_vel = False
@@ -157,11 +157,11 @@ class GO2RoughCfg( LeggedRobotCfg ):
             stance_width_range = [0.10, 0.45]
             stance_length_range = [0.35, 0.45]
     
-    class curriculum_thresholds:
-        tracking_lin_vel = 0.8  # closer to 1 is tighter
-        tracking_ang_vel = 0.7
-        tracking_contacts_shaped_force = 0.9  # closer to 1 is tighter
-        tracking_contacts_shaped_vel = 0.9
+    # class curriculum_thresholds:
+    #     tracking_lin_vel = 0.8  # closer to 1 is tighter
+    #     tracking_ang_vel = 0.7
+    #     tracking_contacts_shaped_force = 0.9  # closer to 1 is tighter
+    #     tracking_contacts_shaped_vel = 0.9
 
     class init_state( LeggedRobotCfg.init_state ):
         pos = [0.0, 0.0, 0.42] # x,y,z [m]

@@ -17,6 +17,7 @@ from legged_gym.utils.math import wrap_to_pi
 from legged_gym.utils.isaacgym_utils import get_euler_xyz as get_euler_xyz_in_tensor
 from legged_gym.utils.helpers import class_to_dict
 from .legged_robot_config import LeggedRobotCfg
+from legged_gym.utils.terrain import Terrain
 
 class LeggedRobot(BaseTask):
     def __init__(self, cfg: LeggedRobotCfg, sim_params, physics_engine, sim_device, headless):
@@ -200,7 +201,18 @@ class LeggedRobot(BaseTask):
         """
         self.up_axis_idx = 2 # 2 for z, 1 for y -> adapt gravity accordingly
         self.sim = self.gym.create_sim(self.sim_device_id, self.graphics_device_id, self.physics_engine, self.sim_params)
-        self._create_ground_plane()
+        mesh_type = self.cfg.terrain.mesh_type
+        if mesh_type in ['heightfield', 'trimesh']:
+            self.terrain = Terrain(self.cfg.terrain, self.num_train_envs)
+        if mesh_type == 'plane':
+            self._create_ground_plane()
+        elif mesh_type == 'heightfield':
+            self._create_heightfield()
+        elif mesh_type == 'trimesh':
+            self._create_trimesh()
+        elif mesh_type is not None:
+            raise ValueError("Terrain mesh type not recognised. Allowed types are [None, plane, heightfield, trimesh]")
+
         self._create_envs()
 
     def set_camera(self, position, lookat):
@@ -648,13 +660,19 @@ class LeggedRobot(BaseTask):
         self.dt = self.cfg.control.decimation * self.sim_params.dt
         self.obs_scales = self.cfg.normalization.obs_scales
         self.reward_scales = class_to_dict(self.cfg.rewards.scales)
+        self.curriculum_thresholds = class_to_dict(self.cfg.curriculum_thresholds)
         self.command_ranges = class_to_dict(self.cfg.commands.ranges)
-     
+        if cfg.terrain.mesh_type not in ['heightfield', 'trimesh']:
+            cfg.terrain.curriculum = False
 
         self.max_episode_length_s = self.cfg.env.episode_length_s
         self.max_episode_length = np.ceil(self.max_episode_length_s / self.dt)
 
         self.cfg.domain_rand.push_interval = np.ceil(self.cfg.domain_rand.push_interval_s / self.dt)
+        cfg.domain_rand.rand_interval = np.ceil(cfg.domain_rand.rand_interval_s / self.dt)
+        cfg.domain_rand.gravity_rand_interval = np.ceil(cfg.domain_rand.gravity_rand_interval_s / self.dt)
+        cfg.domain_rand.gravity_rand_duration = np.ceil(
+            cfg.domain_rand.gravity_rand_interval * cfg.domain_rand.gravity_impulse_duration)
 
 
     #------------ reward functions----------------
